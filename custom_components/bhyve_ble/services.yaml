@@ -1,10 +1,6 @@
 start_watering:
   name: Start Watering
   description: Start the b-hyve valve for a specified duration.
-  target:
-    entity:
-      domain: switch
-      integration: bhyve_ble
   fields:
     duration:
       name: Duration

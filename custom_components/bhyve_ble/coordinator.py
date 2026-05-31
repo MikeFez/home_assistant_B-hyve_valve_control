@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -27,9 +27,12 @@ class BhyveCoordinator(DataUpdateCoordinator[DeviceStatus]):
             update_interval=timedelta(seconds=poll_interval),
         )
         self.device = device
+        self.last_seen: datetime | None = None
 
     async def _async_update_data(self) -> DeviceStatus:
         try:
-            return await self.device.poll_status()
+            result = await self.device.poll_status()
+            self.last_seen = datetime.now(timezone.utc)
+            return result
         except Exception as err:
             raise UpdateFailed(f"BLE poll failed: {err}") from err
