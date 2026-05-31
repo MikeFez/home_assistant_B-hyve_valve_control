@@ -30,8 +30,6 @@ Start watering for a specific duration:
 
 ```yaml
 action: bhyve_ble.start_watering
-target:
-  entity_id: sensor.bhyve_ble_battery
 data:
   duration: 120   # seconds, minimum 15
 ```

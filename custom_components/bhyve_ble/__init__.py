@@ -8,13 +8,12 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.helpers import config_validation as cv
+
 
 from .ble_device import BhyveBLEDevice
 from .coordinator import BhyveCoordinator
 from .const import (
     ATTR_DURATION,
-    CONF_DEFAULT_DURATION,
     CONF_DEVICE_ID,
     CONF_NETWORK_KEY,
     CONF_POLL_INTERVAL,
@@ -76,7 +75,6 @@ def _register_services(hass: HomeAssistant) -> None:
         return
 
     schema = vol.Schema({
-        vol.Required("entity_id"): cv.entity_ids,
         vol.Optional(ATTR_DURATION, default=DEFAULT_DURATION_SEC): vol.All(
             int, vol.Range(min=MIN_DURATION_SEC, max=14400)
         ),
@@ -84,14 +82,13 @@ def _register_services(hass: HomeAssistant) -> None:
 
     async def _handle_start_watering(call: ServiceCall) -> None:
         duration = call.data[ATTR_DURATION]
-        for entity_id in call.data["entity_id"]:
-            for entry_data in hass.data[DOMAIN].values():
-                device: BhyveBLEDevice = entry_data["device"]
-                coordinator: BhyveCoordinator = entry_data["coordinator"]
-                try:
-                    status = await device.start_watering(duration)
-                    coordinator.async_set_updated_data(status)
-                except Exception as err:
-                    _LOGGER.error("start_watering failed for %s: %s", entity_id, err)
+        for entry_data in hass.data[DOMAIN].values():
+            device: BhyveBLEDevice = entry_data["device"]
+            coordinator: BhyveCoordinator = entry_data["coordinator"]
+            try:
+                status = await device.start_watering(duration)
+                coordinator.async_set_updated_data(status)
+            except Exception as err:
+                _LOGGER.error("start_watering failed: %s", err)
 
     hass.services.async_register(DOMAIN, SERVICE_START_WATERING, _handle_start_watering, schema)

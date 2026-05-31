@@ -1,7 +1,7 @@
 {
   "domain": "bhyve_ble",
   "name": "B-Hyve BLE",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "documentation": "https://github.com/your-github/bhyve-ble-ha",
   "dependencies": ["bluetooth"],
   "requirements": ["bleak-retry-connector>=3.0.0"],
