@@ -1,0 +1,19 @@
+start_watering:
+  name: Start Watering
+  description: Start the b-hyve valve for a specified duration.
+  target:
+    entity:
+      domain: switch
+      integration: bhyve_ble
+  fields:
+    duration:
+      name: Duration
+      description: Watering duration in seconds. Minimum 15, maximum 14400 (4 hours).
+      required: false
+      default: 300
+      example: 120
+      selector:
+        number:
+          min: 15
+          max: 14400
+          unit_of_measurement: seconds

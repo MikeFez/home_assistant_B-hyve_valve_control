@@ -1,0 +1,61 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to B-Hyve",
+        "description": "Enter your Orbit account credentials to auto-discover devices.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "pick_device": {
+        "title": "Select Device",
+        "data": {
+          "device": "Device"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to Orbit API",
+      "invalid_auth": "Invalid email or password",
+      "no_devices": "No b-hyve devices found on this account",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "Device already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "B-Hyve BLE Options",
+        "data": {
+          "default_duration": "Default watering duration (seconds)",
+          "poll_interval": "Battery poll interval (seconds)",
+          "refresh_credentials": "Refresh credentials from Orbit API"
+        }
+      },
+      "refresh_credentials": {
+        "title": "Refresh Credentials",
+        "description": "Re-fetch the network key for {device_name} from the Orbit API. Use this if the device stops responding after a re-pairing or account change.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      }
+    }
+  },
+  "services": {
+    "start_watering": {
+      "name": "Start Watering",
+      "description": "Start the valve for a specified duration.",
+      "fields": {
+        "duration": {
+          "name": "Duration",
+          "description": "Watering duration in seconds (minimum 15)."
+        }
+      }
+    }
+  }
+}
