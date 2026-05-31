@@ -36,6 +36,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         device_id=bytes.fromhex(entry.data[CONF_DEVICE_ID]),
         provision_version=entry.data[CONF_PROVISION_VER],
         ble_address=_mac_to_address(entry.data[CONF_DEVICE_ID]),
+        hass=hass,
     )
 
     poll_interval = entry.options.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL)

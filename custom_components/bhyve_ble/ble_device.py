@@ -6,9 +6,10 @@ import os
 import struct
 import time
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from bleak import BleakClient, BleakScanner
+from bleak import BleakClient
+from bleak_retry_connector import establish_connection
 
 from .const import (
     AES_CHAR_UUID,
@@ -19,6 +20,9 @@ from .const import (
     READ_CHAR_UUID,
     WRITE_CHAR_UUID,
 )
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 
 @dataclass
@@ -199,67 +203,82 @@ class BhyveBLEDevice:
         device_id: bytes,
         provision_version: int,
         ble_address: str,
+        hass: "HomeAssistant | None" = None,
     ) -> None:
         self._key = network_key
         self._device_id = device_id
         self._provision_version = provision_version
         self._address = ble_address
+        self._hass = hass
+        self._lock = asyncio.Lock()
+
+    def _get_ble_device(self):
+        from homeassistant.components import bluetooth
+        return bluetooth.async_ble_device_from_address(
+            self._hass, self._address, connectable=True
+        )
 
     async def _connect_and_run(self, operation):
         """Connect, provision, AES handshake, run operation, disconnect."""
-        scanner = BleakScanner()
-        device = await scanner.find_device_by_address(self._address, timeout=15)
-        if device is None:
-            raise RuntimeError(f"BLE device {self._address} not found")
+        async with self._lock:
+            device = self._get_ble_device()
+            if device is None:
+                raise RuntimeError(f"BLE device {self._address} not found")
 
-        async with BleakClient(device, timeout=20) as client:
-            pending: list[bytes] = []
+            client = await establish_connection(BleakClient, device, self._address)
+            try:
+                return await self._run_with_client(client, operation)
+            finally:
+                await client.disconnect()
 
-            def _on_notify(_, data: bytearray):
-                pending.append(bytes(data))
+    async def _run_with_client(self, client, operation):
+        pending: list[bytes] = []
 
-            await client.start_notify(READ_CHAR_UUID, _on_notify)
-            await client.write_gatt_char(
-                NETWORK_CHAR_UUID,
-                struct.pack("<H", self._provision_version) + self._key,
-                response=True,
-            )
+        def _on_notify(_, data: bytearray):
+            pending.append(bytes(data))
 
-            our_write = bytearray(os.urandom(20))
-            our_write[11] = 0
-            await client.write_gatt_char(AES_CHAR_UUID, bytes(our_write), response=True)
-            await asyncio.sleep(0.3)
+        await client.start_notify(READ_CHAR_UUID, _on_notify)
+        await client.write_gatt_char(
+            NETWORK_CHAR_UUID,
+            struct.pack("<H", self._provision_version) + self._key,
+            response=True,
+        )
 
-            rb = bytes(await client.read_gatt_char(AES_CHAR_UUID))
-            km = rb[:4] + bytes(our_write)[4:20]
-            iv = km[:12]
-            enc_ctr = struct.unpack_from("<I", km, 12)[0]
-            dec_ctr = struct.unpack_from("<I", km, 16)[0]
+        our_write = bytearray(os.urandom(20))
+        our_write[11] = 0
+        await client.write_gatt_char(AES_CHAR_UUID, bytes(our_write), response=True)
+        await asyncio.sleep(0.3)
 
-            await asyncio.sleep(0.5)
+        rb = bytes(await client.read_gatt_char(AES_CHAR_UUID))
+        km = rb[:4] + bytes(our_write)[4:20]
+        iv = km[:12]
+        enc_ctr = struct.unpack_from("<I", km, 12)[0]
+        dec_ctr = struct.unpack_from("<I", km, 16)[0]
 
-            for frame in pending:
-                _, dec_ctr = _decrypt_frame(self._key, iv, dec_ctr, frame)
-            pending.clear()
+        await asyncio.sleep(0.5)
 
-            results: list[DeviceStatus] = []
+        for frame in pending:
+            _, dec_ctr = _decrypt_frame(self._key, iv, dec_ctr, frame)
+        pending.clear()
 
-            def _on_notify_live(_, data: bytearray):
-                nonlocal dec_ctr
-                pt, dec_ctr = _decrypt_frame(self._key, iv, dec_ctr, bytes(data))
-                if pt[:4] == b"\xaa\x77\x5a\x0f":
-                    lf = struct.unpack_from("<H", pt, 4)[0]
-                    inner_proto = pt[6:6 + lf - 2]
-                    status = _parse_status_from_message(inner_proto)
-                    if status is not None:
-                        results.append(status)
+        results: list[DeviceStatus] = []
 
-            await client.stop_notify(READ_CHAR_UUID)
-            await client.start_notify(READ_CHAR_UUID, _on_notify_live)
+        def _on_notify_live(_, data: bytearray):
+            nonlocal dec_ctr
+            pt, dec_ctr = _decrypt_frame(self._key, iv, dec_ctr, bytes(data))
+            if pt[:4] == b"\xaa\x77\x5a\x0f":
+                lf = struct.unpack_from("<H", pt, 4)[0]
+                inner_proto = pt[6:6 + lf - 2]
+                status = _parse_status_from_message(inner_proto)
+                if status is not None:
+                    results.append(status)
 
-            result = await operation(client, iv, enc_ctr, results)
-            await asyncio.sleep(5)
-            return result, results
+        await client.stop_notify(READ_CHAR_UUID)
+        await client.start_notify(READ_CHAR_UUID, _on_notify_live)
+
+        result = await operation(client, iv, enc_ctr, results)
+        await asyncio.sleep(5)
+        return result, results
 
     async def start_watering(self, duration_sec: int) -> DeviceStatus:
         duration_sec = max(duration_sec, MIN_DURATION_SEC)
