@@ -21,7 +21,7 @@ Confirmed working on: `HT31-0001` (Smart Hose Tap Timer)
 
 | Entity | Type | Description |
 |--------|------|-------------|
-| `switch.bhyve_ble_valve` | Switch | ON = start watering (default duration), OFF = stop |
+| `button.bhyve_ble_stop_watering` | Button | Send stop command to the valve |
 | `sensor.bhyve_ble_battery` | Sensor | Battery % (polled via BLE on configurable interval) |
 
 ## Action: `bhyve_ble.start_watering`
@@ -31,7 +31,7 @@ Start watering for a specific duration:
 ```yaml
 action: bhyve_ble.start_watering
 target:
-  entity_id: switch.bhyve_ble_valve
+  entity_id: sensor.bhyve_ble_battery
 data:
   duration: 120   # seconds, minimum 15
 ```
@@ -40,7 +40,6 @@ data:
 
 After setup, configure via the integration's **Configure** button:
 
-- **Default watering duration** — used when the switch is turned on (default: 300s / 5 min)
 - **Battery poll interval** — how often to connect via BLE to read battery (default: 3600s / 1 hr)
 
 ## Battery Calibration
