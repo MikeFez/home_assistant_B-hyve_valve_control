@@ -2,7 +2,7 @@
 
 Local Bluetooth control of Orbit B-Hyve hose tap timers — no WiFi hub or cloud required.
 
-Confirmed working on: `HT31-0001` (Smart Hose Tap Timer, MAC `44:67:55:84:2F:04`)
+Confirmed working on: `HT31-0001` (Smart Hose Tap Timer)
 
 ## Installation via HACS
 
