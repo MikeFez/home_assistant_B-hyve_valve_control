@@ -193,7 +193,8 @@ def _manual_water_pb(duration_sec: int) -> bytes:
 
 
 def _stop_pb() -> bytes:
-    return _pb(52, 2, _pb(1, 0, _varint(0)))
+    # timerMode { mode: offMode(0) } — mirrors start but with mode=0 instead of manualMode(2)
+    return _pb(14, 2, _pb(1, 0, _varint(0)))
 
 
 class BhyveBLEDevice:
